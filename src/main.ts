@@ -335,8 +335,8 @@ function renderApp(): void {
 
   // 数据来源提示
   const dataSourceNotice = `
-    <div class="mx-4 mt-4 mb-2 px-3 py-2 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded text-xs text-blue-700 dark:text-blue-300">
-      ℹ️ 数据由后端API提供，自动聚合多个数据源
+    <div class="mx-4 mt-4 mb-2 px-3 py-2 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded text-xs text-green-700 dark:text-green-300">
+      🌐 数据由 Cloudflare Workers 提供，全球 CDN 加速
     </div>
   `;
 

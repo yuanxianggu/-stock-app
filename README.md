@@ -1,185 +1,156 @@
-# projects
+# 全球股票行情系统
 
-这是一个基于 Express + Vite + TypeScript + Tailwind CSS 的全栈 Web 应用项目，由扣子编程 CLI 创建。
+这是一个基于 Cloudflare Pages + TypeScript + Tailwind CSS 的股票行情应用，支持多市场实时行情查询。
 
 **核心特性：**
 - 🚀 前端：Vite + TypeScript + Tailwind CSS
-- 🔧 后端：Express + TypeScript，提供 RESTful API
-- 🔥 开发模式：Vite HMR + Express API，单进程启动
-- 📦 生产模式：Express 静态服务 + API，高性能部署
+- ⚡️ 后端：Cloudflare Workers Functions（边缘计算）
+- 🌍 部署：Cloudflare Pages（全球 CDN 加速）
+- 💰 费用：完全免费（永久）
+- 📱 适配：完美支持移动端
+- 🎨 样式：亮色/暗色主题自动切换
 
 ## 快速开始
 
-### 启动开发服务器
+### 本地开发
+
+#### 方式 1：纯前端开发（仅 UI）
 
 ```bash
-coze dev
+# 启动 Vite 开发服务器
+pnpm dev
+
+# 访问 http://localhost:5000
 ```
 
-启动后，在浏览器中打开 [http://localhost:5000](http://localhost:5000) 查看应用。
+**注意**：此模式下 Workers Functions 不会运行，API 请求会失败。
 
-开发服务器支持热更新（HMR），修改代码后页面会自动刷新。
-
-### 构建生产版本
+#### 方式 2：完整开发（包含 Workers Functions）
 
 ```bash
-coze build
+# 1. 安装 Wrangler CLI
+pnpm add -g wrangler
+
+# 2. 登录 Cloudflare
+wrangler login
+
+# 3. 启动本地服务器（包含 Workers Functions）
+wrangler pages dev dist --functions=functions --port 5000
 ```
 
-构建产物位于 `dist/` 目录，可直接部署到静态托管服务。
+现在可以访问 http://localhost:5000，API 也会正常工作！
 
-### 预览生产版本
+### 部署到 Cloudflare Pages
 
-```bash
-coze start
-```
+详细部署指南请查看 [DEPLOY_TO_CLOUDFLARE.md](./DEPLOY_TO_CLOUDFLARE.md)
 
-在本地启动一个静态服务器，预览生产构建的效果。
+**快速部署步骤**：
+
+1. 推送代码到 GitHub
+2. 访问 https://dash.cloudflare.com
+3. 创建 Pages 项目，连接 GitHub 仓库
+4. 点击部署（自动识别 Vite 项目）
+5. 获得访问地址：`https://your-project.pages.dev`
 
 ## 项目结构
 
 ```
-├── server/                # 后端服务器目录
-│   ├── index.ts          # express 服务器入口
-│   ├── routes/           # API 路由目录
-│   │   └── index.ts      # 路由定义
-│   └── vite.ts           # Vite 集成逻辑
 ├── src/                   # 前端源码目录
-│   ├── index.ts          # 前端应用入口（初始化）
-│   ├── main.ts           # 前端主逻辑文件
+│   ├── main.ts           # 主逻辑（股票列表、无限滚动）
+│   ├── index.ts          # 应用入口
 │   └── index.css         # 全局样式（包含 Tailwind 指令）
+├── functions/            # Cloudflare Workers Functions
+│   └── api/
+│       ├── stocks.js     # 股票数据 API（聚合数据）
+│       └── health.js     # 健康检查 API
+├── public/               # 静态资源和配置
+│   ├── _headers          # HTTP 响应头配置
+│   └── _redirects        # URL 重定向规则
 ├── index.html            # HTML 入口文件
 ├── vite.config.ts        # Vite 配置
-├── tailwind.config.ts    # Tailwind CSS 配置
+├── wrangler.toml         # Wrangler 配置（本地开发）
+├── tailwind.config.js    # Tailwind CSS 配置
 └── tsconfig.json         # TypeScript 配置
 ```
 
 **目录说明：**
 
-- **`server/`** - 后端服务器代码
-  - `server.ts` - 服务器主入口，负责创建和启动 Express 应用
-  - `routes/` - API 路由模块，支持按功能拆分路由
-  - `vite.ts` - Vite 开发服务器和静态文件服务集成
-
 - **`src/`** - 前端应用代码
-  - 所有前端相关代码都在这里
+  - `main.ts` - 核心业务逻辑（股票列表、市场切换、无限滚动）
+  - `index.ts` - 应用初始化
+
+- **`functions/`** - Cloudflare Workers Functions
+  - `stocks.js` - 股票数据 API，调用聚合数据获取真实行情
+  - `health.js` - 健康检查端点
+
+- **`public/`** - Cloudflare Pages 配置
+  - `_headers` - 自定义 HTTP 响应头（安全头、CORS、缓存）
+  - `_redirects` - URL 重定向规则（SPA 路由回退）
 
 **工作原理：**
 
-- **开发模式** (`coze dev`)：
-  - 运行 `server/server.ts` 启动 Express 服务器
-  - Vite 以 middleware 模式集成到 Express
-  - 前端支持 HMR（热模块替换）
-  - 后端 API 和前端在同一进程，端口 5000
+- **本地开发** (`wrangler pages dev`)：
+  - Wrangler 启动本地服务器
+  - 前端使用 Vite 构建结果
+  - Workers Functions 本地运行
+  - 支持 API 调用
 
-- **生产模式** (`coze start`)：
-  - `coze build` 构建前端 → `dist/` 目录
-  - `coze build` 构建后端 → `dist-server/index.js` (CommonJS 格式)
-  - 运行 `dist-server/index.js` 启动生产服务器
-  - Express 服务静态文件 + API 路由
-  - 单一 Node.js 进程，轻量高效
+- **生产环境** (Cloudflare Pages)：
+  - `pnpm build` 构建前端 → `dist/` 目录
+  - Workers Functions 自动部署到 Cloudflare 全球网络
+  - 静态资源通过 CDN 加速
+  - API 运行在边缘节点（全球 300+ 节点）
 
 ## 核心开发规范
 
-### 1. 后端 API 开发
+### 1. Workers Functions 开发
 
-**添加新的 API 路由**
+**添加新的 API 端点**
 
-在 `server/routes/index.ts` 中添加路由：
+在 `functions/api/` 目录下创建新的 `.js` 文件：
 
-```typescript
-// GET 请求示例
-router.get('/api/users', (req, res) => {
-  res.json({
-    users: [
-      { id: 1, name: 'Alice' },
-      { id: 2, name: 'Bob' },
-    ],
+```javascript
+// functions/api/hello.js
+export async function onRequest(context) {
+  const { request, env } = context;
+  const url = new URL(request.url);
+  const name = url.searchParams.get('name') || 'World';
+
+  return new Response(JSON.stringify({
+    message: `Hello, ${name}!`,
+    timestamp: new Date().toISOString(),
+  }), {
+    headers: {
+      'Content-Type': 'application/json',
+      'Access-Control-Allow-Origin': '*',
+    },
   });
-});
-
-// POST 请求示例
-router.post('/api/users', (req, res) => {
-  const userData = req.body;
-  // 处理业务逻辑
-  res.json({
-    success: true,
-    user: userData,
-  });
-});
-
-// 动态路由参数
-router.get('/api/users/:id', (req, res) => {
-  const userId = req.params.id;
-  res.json({
-    id: userId,
-    name: 'User ' + userId,
-  });
-});
+}
 ```
 
-**拆分路由模块**（推荐）
+**访问 API**
 
-当路由变多时，可以按功能拆分：
-
-```typescript
-// server/routes/users.ts
-import { Router } from 'express';
-
-const router = Router();
-
-router.get('/api/users', (req, res) => {
-  // 用户列表逻辑
-  res.json({ users: [] });
-});
-
-router.post('/api/users', (req, res) => {
-  // 创建用户逻辑
-  res.json({ success: true });
-});
-
-export default router;
-```
-
-然后在 `server/server.ts` 中注册：
-
-```typescript
-import usersRouter from './routes/users';
-
-// 注册路由
-app.use(usersRouter);
-```
+访问路径会自动映射：
+- `functions/api/hello.js` → `/api/hello`
+- `functions/api/stocks.js` → `/api/stocks`
 
 **前端调用 API**
 
 ```typescript
-// GET 请求
-async function getUsers() {
-  const response = await fetch('/api/users');
-  const data = await response.json();
-  console.log(data);
-}
-
-// POST 请求
-async function createUser(name: string) {
-  const response = await fetch('/api/users', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ name }),
-  });
+async function sayHello(name: string) {
+  const response = await fetch(`/api/hello?name=${name}`);
   const data = await response.json();
   console.log(data);
 }
 ```
 
-**API 最佳实践**
+**Workers Functions 最佳实践**
 
-- ✅ 所有 API 路由以 `/api` 开头，避免与前端路由冲突
-- ✅ 使用 RESTful 设计：GET 查询、POST 创建、PUT 更新、DELETE 删除
-- ✅ 返回统一的响应格式：`{ success: boolean, data?: any, error?: string }`
-- ✅ 添加错误处理和参数验证
+- ✅ 使用 `export async function onRequest(context)` 导出处理函数
+- ✅ 添加 CORS 头：`'Access-Control-Allow-Origin': '*'`
+- ✅ 使用 `fetch` API 进行外部请求（支持）
+- ✅ 返回 `new Response()` 对象
+- ✅ 设置正确的 `Content-Type` 头
 
 ### 2. 样式开发
 
@@ -360,14 +331,24 @@ console.log(apiUrl); // https://api.example.com
 - **语言**: TypeScript 5.x
 - **样式**: Tailwind CSS 3.x
 
-**后端：**
-- **框架**: Express 4.x
-- **内置中间件**: express.json(), express.urlencoded(), express.static()
+**后端（Workers Functions）：**
+- **运行时**: Cloudflare Workers（V8 Isolates）
+- **API**: 原生 Fetch API（支持）
+- **框架**: 无框架（纯 JavaScript）
+
+**部署：**
+- **平台**: Cloudflare Pages
+- **CDN**: Cloudflare 全球网络（300+ 节点）
+- **SSL**: 自动 Let's Encrypt
+- **费用**: 永久免费
+
+**数据源：**
+- **股票行情**: 聚合数据 API（Juhe.cn）
 
 **工具：**
 - **包管理器**: pnpm 9+
-- **运行时**: Node.js 18+
-- **开发工具**: tsx (TypeScript 执行器)
+- **开发工具**: Wrangler CLI
+- **类型检查**: TypeScript
 
 ## 参考文档
 
@@ -376,43 +357,56 @@ console.log(apiUrl); // https://api.example.com
 - [TypeScript 官方文档](https://www.typescriptlang.org/zh/docs/)
 - [Tailwind CSS 文档](https://tailwindcss.com/docs)
 
-**后端：**
-- [Express 官方文档](https://expressjs.com/)
-- [Express 中文文档](https://expressjs.com/zh-cn/)
+**Cloudflare：**
+- [Cloudflare Pages 官方文档](https://developers.cloudflare.com/pages/)
+- [Workers Functions 文档](https://developers.cloudflare.com/pages/functions/)
+- [Wrangler CLI 文档](https://developers.cloudflare.com/workers/wrangler/)
+
+**数据源：**
+- [聚合数据 API 文档](http://web.juhe.cn/finance/stock/shall)
 
 ## 重要提示
 
 1. **必须使用 pnpm** 作为包管理器
 2. **使用 TypeScript** 进行类型安全开发，避免使用 `any`
 3. **使用 Tailwind CSS** 进行样式开发，支持响应式和暗色模式
-4. **环境变量必须以 `VITE_` 开头** 才能在客户端代码中访问
-5. **开发时使用 `coze dev`**，支持热更新和快速刷新
-6. **API 路由以 `/api` 开头**，避免与前端路由冲突
-7. **单进程架构**：开发和生产环境都是前后端在同一进程中运行
+4. **Workers Functions 必须导出 `onRequest` 函数**
+5. **API 路由以 `/api` 开头**，避免与前端路由冲突
+6. **部署到 Cloudflare Pages**，享受全球 CDN 加速和免费服务
+7. **本地开发推荐使用 `wrangler pages dev`**，可以测试 Workers Functions
+
+## 费用说明
+
+| 项目 | 费用 | 说明 |
+|------|------|------|
+| Cloudflare Pages | **0 元**（永久免费） | 无限带宽、无限存储 |
+| Workers Functions | **0 元**（100,000 次/月） | 超出后按 0.5 美元/100万次计费 |
+| 聚合数据 API | **0-999 元/月** | 根据套餐而定 |
+
+**总费用：0 元（学习/演示）至 999 元/月（商业）**
 
 ## 常见问题
 
-**Q: 如何分离前后端端口？**
+**Q: 如何修改股票数据源？**
 
-如果需要前后端分离部署，可以：
-- 前端：使用 `npx vite` 单独启动（默认端口 5173）
-- 后端：修改 `server.ts`，移除 Vite middleware，单独启动
+A: 编辑 `functions/api/stocks.js` 文件，修改 `STOCK_API_CONFIG` 配置。
+
+**Q: Workers Functions 请求限制超出怎么办？**
+
+A:
+1. 优化 API 调用（增加缓存、减少请求次数）
+2. 升级到 Cloudflare Pages 付费套餐（20 美元/月）
+3. 考虑使用其他方案（如 Vercel + Railway）
 
 **Q: 如何添加数据库？**
 
+A: 推荐使用 Supabase（免费）：
+
 ```bash
-# 安装数据库客户端（以 PostgreSQL 为例）
-pnpm add pg
-pnpm add -D @types/pg
+# 安装 Supabase 客户端
+pnpm add @supabase/supabase-js
 
-# 在 server.ts 中使用
-import { Pool } from 'pg';
-const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+# 在 Workers Functions 中使用
+import { createClient } from '@supabase/supabase-js';
+const supabase = createClient(url, key);
 ```
-
-**Q: 如何部署？**
-
-1. 运行 `coze build` 构建前后端
-2. 将整个项目上传到服务器
-3. 运行 `pnpm install --prod`
-4. 运行 `coze start` 启动服务

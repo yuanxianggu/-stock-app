@@ -1,11 +1,9 @@
-import { Router } from 'express';
-import axios from 'axios';
+// Cloudflare Pages Function for Stocks API
+// 处理股票行情请求，调用聚合数据API
 
-const router = Router();
-
-// 股票API配置（根据聚合数据文档）
+// 聚合数据API配置
 const STOCK_API_CONFIG = {
-  apiKey: process.env.STOCK_API_KEY || '8d33d60f6d3cecb50617aeca9f73f6c8',
+  apiKey: '8d33d60f6d3cecb50617aeca9f73f6c8',
   endpoints: {
     sh: 'http://web.juhe.cn/finance/stock/shall',
     sz: 'http://web.juhe.cn/finance/stock/szall',
@@ -15,7 +13,7 @@ const STOCK_API_CONFIG = {
 };
 
 // 真实股票名称库
-const STOCK_NAMES: Record<string, string[]> = {
+const STOCK_NAMES = {
   sh: [
     '贵州茅台', '中国平安', '招商银行', '浦发银行', '上汽集团',
     '工商银行', '农业银行', '中国银行', '建设银行', '交通银行',
@@ -54,13 +52,13 @@ const US_STOCK_CODES = [
 ];
 
 // 生成模拟数据
-function generateMockStocks(market: string, page: number, pageSize: number) {
+function generateMockStocks(market, page, pageSize) {
   const stocks = [];
   const names = STOCK_NAMES[market] || STOCK_NAMES.sh;
 
   for (let i = 0; i < pageSize; i++) {
     const index = (page - 1) * pageSize + i;
-    let code: string;
+    let code;
 
     if (market === 'us') {
       const codeIndex = index % US_STOCK_CODES.length;
@@ -73,7 +71,7 @@ function generateMockStocks(market: string, page: number, pageSize: number) {
     }
 
     const rand = Math.random();
-    let changePercent: number;
+    let changePercent;
     if (rand < 0.05) {
       changePercent = (Math.random() > 0.5 ? 5.01 : -5.01) * (0.5 + Math.random() * 1.5);
     } else if (rand < 0.2) {
@@ -82,7 +80,7 @@ function generateMockStocks(market: string, page: number, pageSize: number) {
       changePercent = (Math.random() * 6 - 3);
     }
 
-    let price: number;
+    let price;
     if (market === 'us') {
       price = 100 + Math.random() * 200;
     } else if (market === 'hk') {
@@ -104,48 +102,53 @@ function generateMockStocks(market: string, page: number, pageSize: number) {
   return stocks;
 }
 
-// 股票行情API
-router.get('/api/stocks', async (req, res) => {
+// 股票行情API处理函数
+export async function onRequest(context) {
+  const { request, env } = context;
+  const url = new URL(request.url);
+  const market = url.searchParams.get('market') || 'sh';
+  const page = url.searchParams.get('page') || '1';
+  const pageSize = url.searchParams.get('pageSize') || '20';
+
+  console.log('股票API请求:', { market, page, pageSize });
+
   try {
-    const { market = 'sh', page = 1, pageSize = 20 } = req.query;
-
-    console.log('股票API请求:', { market, page, pageSize });
-
     // 调用聚合数据真实API
-    const apiUrl = STOCK_API_CONFIG.endpoints[market as keyof typeof STOCK_API_CONFIG.endpoints];
+    const apiUrl = STOCK_API_CONFIG.endpoints[market];
     if (!apiUrl) {
-      return res.status(400).json({
+      return new Response(JSON.stringify({
         success: false,
         error: 'Invalid market parameter',
+      }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' },
       });
     }
 
     try {
       console.log(`调用聚合数据API: ${apiUrl}`);
-      console.log(`使用 apiKey: ${STOCK_API_CONFIG.apiKey.substring(0, 8)}...`);
 
       // 构建请求参数
       const params = new URLSearchParams({
         key: STOCK_API_CONFIG.apiKey,
-        page: String(page),
+        page: page,
       });
 
       // 沪市和深市支持stock参数（a表示A股，b表示B股）
       if (market === 'sh' || market === 'sz') {
-        params.append('stock', 'a'); // 默认查询A股
+        params.append('stock', 'a');
       }
 
-      const url = `${apiUrl}?${params.toString()}`;
-      console.log('请求URL:', url);
+      const requestUrl = `${apiUrl}?${params.toString()}`;
+      console.log('请求URL:', requestUrl);
 
-      const response = await axios.get(url, {
-        timeout: 10000,
+      const response = await fetch(requestUrl, {
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded',
         },
       });
 
-      const data = response.data;
+      const data = await response.json();
       console.log('API响应状态:', data.error_code);
       console.log('API响应原因:', data.reason);
 
@@ -155,7 +158,7 @@ router.get('/api/stocks', async (req, res) => {
 
         if (stockList.length > 0) {
           // 根据不同市场的返回格式转换数据
-          const stocks = stockList.map((item: any) => {
+          const stocks = stockList.map((item) => {
             // 沪市/深市格式
             if (market === 'sh' || market === 'sz') {
               return {
@@ -188,13 +191,18 @@ router.get('/api/stocks', async (req, res) => {
 
           console.log('成功获取真实数据:', stocks.length);
 
-          return res.json({
+          return new Response(JSON.stringify({
             success: true,
             data: stocks,
             total: parseInt(result.totalCount || '0'),
-            page: parseInt(result.page || String(page)),
-            pageSize: parseInt(result.num || String(pageSize)),
+            page: parseInt(result.page || page),
+            pageSize: parseInt(result.num || pageSize),
             source: 'api',
+          }), {
+            headers: {
+              'Content-Type': 'application/json',
+              'Access-Control-Allow-Origin': '*',
+            },
           });
         }
       } else {
@@ -202,46 +210,37 @@ router.get('/api/stocks', async (req, res) => {
       }
     } catch (error) {
       console.error('聚合数据API请求失败:', error);
-      if (axios.isAxiosError(error)) {
-        console.error('错误详情:', error.response?.data);
-      }
     }
 
     // 如果所有API都失败，使用模拟数据
     console.warn('所有API端点都失败，使用模拟数据');
-    const mockData = generateMockStocks(String(market), parseInt(String(page)), parseInt(String(pageSize)));
+    const mockData = generateMockStocks(market, parseInt(page), parseInt(pageSize));
 
-    res.json({
+    return new Response(JSON.stringify({
       success: true,
       data: mockData,
       total: 100,
-      page: parseInt(String(page)),
-      pageSize: parseInt(String(pageSize)),
+      page: parseInt(page),
+      pageSize: parseInt(pageSize),
       source: 'mock',
+    }), {
+      headers: {
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': '*',
+      },
     });
   } catch (error) {
     console.error('股票API错误:', error);
-    res.status(500).json({
+    return new Response(JSON.stringify({
       success: false,
       error: '获取股票数据失败',
-      message: error instanceof Error ? error.message : 'Unknown error',
+      message: error.message,
+    }), {
+      status: 500,
+      headers: {
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': '*',
+      },
     });
   }
-});
-
-// 健康检查
-router.get('/api/health', (req, res) => {
-  res.json({
-    status: 'ok',
-    env: process.env.COZE_PROJECT_ENV,
-    timestamp: new Date().toISOString(),
-    apis: {
-      stock: {
-        apiKey: STOCK_API_CONFIG.apiKey ? `configured (${STOCK_API_CONFIG.apiKey.substring(0, 8)}...)` : 'not configured',
-        endpoints: Object.keys(STOCK_API_CONFIG.endpoints).length,
-      },
-    },
-  });
-});
-
-export default router;
+}
