@@ -71,12 +71,18 @@ function getColorClass(changePercent: string): string {
 
 // API 请求
 async function fetchStockList(market: string, page: number): Promise<ApiResponse> {
+  console.log('请求 API:', { market, page });
   try {
     const response = await fetch(
       `${CONFIG.API_BASE_URL}?showapi_appid=${CONFIG.API_KEY}&showapi_sign=${CONFIG.API_KEY}&market=${market}&page=${page}&pageSize=${CONFIG.PAGE_SIZE}`
     );
     const data = await response.json();
-    return data;
+    console.log('API 响应:', data);
+    if (data.data && data.data.length > 0) {
+      return data;
+    }
+    // 如果 API 返回空数据，使用模拟数据
+    throw new Error('API 返回空数据');
   } catch (error) {
     console.error('API 请求失败:', error);
     // 模拟数据（用于演示）
@@ -104,6 +110,8 @@ function generateMockStocks(market: string, page: number): StockData[] {
     us: '美国',
   };
 
+  console.log('生成模拟数据:', { market, page });
+
   for (let i = 0; i < CONFIG.PAGE_SIZE; i++) {
     const index = (page - 1) * CONFIG.PAGE_SIZE + i + 1;
     const prefix = marketPrefixes[market] || '';
@@ -111,14 +119,16 @@ function generateMockStocks(market: string, page: number): StockData[] {
     const change = (Math.random() * 20 - 10).toFixed(2);
     const price = (10 + Math.random() * 100).toFixed(2);
 
-    stocks.push({
+    const stock: StockData = {
       name: `${marketNames[market] || ''}股票${index}`,
       code,
       price,
       changePercent: change,
-    });
+    };
+    stocks.push(stock);
   }
 
+  console.log('生成的模拟数据:', stocks.length);
   return stocks;
 }
 
@@ -222,6 +232,13 @@ function renderSkeleton(): string {
 function renderApp(): void {
   if (!appElement) return;
 
+  console.log('开始渲染应用:', {
+    isLoading: state.isLoading,
+    isLoadingMore: state.isLoadingMore,
+    stockListLength: state.stockList.length,
+    hasMore: state.hasMore,
+  });
+
   const navbarHtml = renderNavbar();
   const loadingHtml = state.isLoading ? renderLoading() : '';
   const stockListHtml = state.stockList.length > 0
@@ -229,6 +246,12 @@ function renderApp(): void {
     : '';
   const skeletonHtml = state.isLoading ? renderSkeleton() : '';
   const loadMoreHtml = renderLoadMore();
+
+  console.log('渲染 HTML 长度:', {
+    navbar: navbarHtml.length,
+    stockList: stockListHtml.length,
+    loadMore: loadMoreHtml.length,
+  });
 
   appElement.innerHTML = `
     ${loadingHtml}
@@ -245,6 +268,8 @@ function renderApp(): void {
   if (!state.isLoading && state.stockList.length > 0) {
     bindScrollEvent();
   }
+
+  console.log('渲染完成');
 }
 
 // 加载数据
@@ -258,11 +283,14 @@ async function loadData(isLoadMore = false): Promise<void> {
     state.isLoading = true;
   }
 
+  console.log('加载数据:', { isLoadMore, market: state.currentMarket, page: state.currentPage });
   renderApp();
 
   try {
     const response = await fetchStockList(state.currentMarket, state.currentPage);
     const newStocks = response.data || [];
+
+    console.log('获取到数据:', newStocks.length);
 
     if (isLoadMore) {
       state.stockList = [...state.stockList, ...newStocks];
@@ -282,6 +310,7 @@ async function loadData(isLoadMore = false): Promise<void> {
   } finally {
     state.isLoading = false;
     state.isLoadingMore = false;
+    console.log('渲染状态:', { stockList: state.stockList.length, isLoading: state.isLoading });
     renderApp();
   }
 }

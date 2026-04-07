@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>股票行情测试</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #f5f5f5;
+    }
+    .test-info {
+      padding: 20px;
+      background: white;
+      margin-bottom: 20px;
+    }
+    .test-info h1 {
+      font-size: 18px;
+      margin-bottom: 10px;
+    }
+    .test-info p {
+      color: #666;
+      font-size: 14px;
+    }
+    .stock-item {
+      display: flex;
+      justify-content: space-between;
+      padding: 15px;
+      background: white;
+      border-bottom: 1px solid #eee;
+    }
+    .stock-name {
+      font-weight: bold;
+      font-size: 16px;
+    }
+    .stock-code {
+      font-size: 12px;
+      color: #999;
+      margin-top: 4px;
+    }
+    .stock-price {
+      text-align: right;
+    }
+    .price {
+      font-weight: bold;
+      font-size: 16px;
+    }
+    .change {
+      font-size: 12px;
+      margin-top: 4px;
+    }
+    .up { color: #ff4d4f; }
+    .down { color: #52c41a; }
+    .neutral { color: #333; }
+  </style>
+</head>
+<body>
+  <div class="test-info">
+    <h1>股票行情系统测试</h1>
+    <p>当前显示的是模拟数据，共 20 条股票信息</p>
+  </div>
+  <div id="stock-list"></div>
+
+  <script>
+    // 生成模拟数据
+    function generateStocks() {
+      const stocks = [];
+      for (let i = 1; i <= 20; i++) {
+        const change = (Math.random() * 20 - 10).toFixed(2);
+        const price = (10 + Math.random() * 100).toFixed(2);
+        const changeClass = change > 0 ? 'up' : (change < 0 ? 'down' : 'neutral');
+        const sign = change > 0 ? '+' : '';
+        
+        stocks.push({
+          name: `上海股票${i}`,
+          code: '600' + String(i).padStart(6, '0'),
+          price: price,
+          change: change,
+          changeClass: changeClass,
+          sign: sign
+        });
+      }
+      return stocks;
+    }
+
+    // 渲染股票列表
+    function renderStocks() {
+      const stocks = generateStocks();
+      const container = document.getElementById('stock-list');
+      
+      container.innerHTML = stocks.map(stock => `
+        <div class="stock-item">
+          <div>
+            <div class="stock-name">${stock.name}</div>
+            <div class="stock-code">${stock.code}</div>
+          </div>
+          <div class="stock-price">
+            <div class="price ${stock.changeClass}">${stock.price}</div>
+            <div class="change ${stock.changeClass}">${stock.sign}${stock.change}%</div>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    renderStocks();
+  </script>
+</body>
+</html>
