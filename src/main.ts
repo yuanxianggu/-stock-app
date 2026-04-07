@@ -93,6 +93,38 @@ async function fetchStockList(market: string, page: number): Promise<ApiResponse
   }
 }
 
+// 真实股票名称库
+const STOCK_NAMES: Record<string, string[]> = {
+  sh: [
+    '贵州茅台', '中国平安', '招商银行', '浦发银行', '上汽集团',
+    '工商银行', '农业银行', '中国银行', '建设银行', '交通银行',
+    '兴业银行', '民生银行', '华夏银行', '中信银行', '光大银行',
+    '中国石油', '中国石化', '长江电力', '中国神华', '中国联通',
+    '中国移动', '中国电信', '紫金矿业', '宝钢股份', '中国铝业',
+  ],
+  sz: [
+    '宁德时代', '比亚迪', '五粮液', '格力电器', '美的集团',
+    '万科A', '平安银行', '京东方A', '立讯精密', '牧原股份',
+    '海康威视', '迈瑞医疗', '爱尔眼科', '长春高新', '东方财富',
+    '智飞生物', '药明康德', '汇川技术', '阳光电源', '三花智控',
+    '宁德时代', '天齐锂业', '赣锋锂业', '亿纬锂能', '恩捷股份',
+  ],
+  hk: [
+    '腾讯控股', '阿里巴巴', '美团点评', '小米集团', '中国移动',
+    '建设银行', '工商银行', '中国平安', '招商银行', '中国银行',
+    '友邦保险', '香港交易所', '长江实业', '新鸿基地产', '恒基地产',
+    '中石油', '中石化', '中国移动', '中国电信', '联通',
+    '药明生物', '百济神州', '信达生物', '君实生物', '康希诺',
+  ],
+  us: [
+    '苹果', '微软', '亚马逊', '谷歌', '特斯拉',
+    'Meta', '英伟达', '台积电', '伯克希尔', '强生',
+    'Visa', '摩根大通', '宝洁', '联合健康', '诺和诺德',
+    '礼来', '阿斯麦', '博通', '腾讯', '阿里巴巴',
+    '台积电', '三星电子', '丰田汽车', '强生', '宝洁',
+  ],
+};
+
 // 生成模拟数据（仅用于演示）
 function generateMockStocks(market: string, page: number): StockData[] {
   const stocks: StockData[] = [];
@@ -103,24 +135,24 @@ function generateMockStocks(market: string, page: number): StockData[] {
     us: 'US',
   };
 
-  const marketNames: Record<string, string> = {
-    sh: '上海',
-    sz: '深圳',
-    hk: '香港',
-    us: '美国',
-  };
+  const names = STOCK_NAMES[market] || STOCK_NAMES.sh;
+  const namesLength = names.length;
 
   console.log('生成模拟数据:', { market, page });
 
   for (let i = 0; i < CONFIG.PAGE_SIZE; i++) {
-    const index = (page - 1) * CONFIG.PAGE_SIZE + i + 1;
+    const index = (page - 1) * CONFIG.PAGE_SIZE + i;
     const prefix = marketPrefixes[market] || '';
-    const code = prefix + String(index).padStart(6, '0');
+    const code = prefix + String(index + 1).padStart(6, '0');
     const change = (Math.random() * 20 - 10).toFixed(2);
     const price = (10 + Math.random() * 100).toFixed(2);
 
+    // 循环使用真实股票名称
+    const nameIndex = index % namesLength;
+    const stockName = names[nameIndex];
+
     const stock: StockData = {
-      name: `${marketNames[market] || ''}股票${index}`,
+      name: stockName,
       code,
       price,
       changePercent: change,
@@ -353,7 +385,7 @@ export function initApp(): void {
   }
 
   // 将全局函数暴露给 window
-  (window as Window & { switchMarket: (marketId: string) => void }).switchMarket = switchMarket;
+  (window as unknown as Window & { switchMarket: (marketId: string) => void }).switchMarket = switchMarket;
 
   // 加载初始数据
   loadData(false);
