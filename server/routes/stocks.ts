@@ -5,11 +5,13 @@ const router = Router();
 
 // 股票API配置
 const STOCK_API_CONFIG = {
-  key: process.env.STOCK_API_KEY || '8d33d60f6d3cecb50617aeca9f73f6c8',
+  // 聚合数据需要两个参数：appid 和 sign
+  appid: process.env.STOCK_API_APPID || '8d33d60f6d3cecb50617aeca9f73f6c8',
+  sign: process.env.STOCK_API_SIGN || '8d33d60f6d3cecb50617aeca9f73f6c8',
   endpoints: [
-    'https://route.showapi.com/131-63',
-    'https://route.showapi.com/131-60',
-    'https://route.showapi.com/131-62',
+    'https://route.showapi.com/131-63', // 股票行情
+    'https://route.showapi.com/131-60', // 实时行情
+    'https://route.showapi.com/131-62', // 历史行情
   ],
 };
 
@@ -113,18 +115,26 @@ router.get('/api/stocks', async (req, res) => {
     // 尝试调用真实API
     for (const endpoint of STOCK_API_CONFIG.endpoints) {
       try {
+        console.log(`尝试API端点: ${endpoint}`);
+        console.log(`使用 appid: ${STOCK_API_CONFIG.appid.substring(0, 8)}...`);
+        console.log(`使用 sign: ${STOCK_API_CONFIG.sign.substring(0, 8)}...`);
+
         const params = new URLSearchParams({
-          showapi_appid: STOCK_API_CONFIG.key,
-          showapi_sign: STOCK_API_CONFIG.key,
+          showapi_appid: STOCK_API_CONFIG.appid,
+          showapi_sign: STOCK_API_CONFIG.sign,
           market: String(market),
           page: String(page),
           num: String(pageSize),
         });
 
         const url = `${endpoint}?${params.toString()}`;
+        console.log('请求URL:', url);
+
         const response = await axios.get(url, { timeout: 5000 });
 
         const data = response.data;
+        console.log('API响应状态:', data.showapi_res_code);
+        console.log('API响应错误:', data.showapi_res_error);
 
         if (data.showapi_res_code === 0 && data.showapi_res_body) {
           const body = data.showapi_res_body;
@@ -148,10 +158,15 @@ router.get('/api/stocks', async (req, res) => {
               pageSize: parseInt(String(pageSize)),
               source: 'api',
             });
+          } else {
+            console.log('API返回数据为空');
           }
         }
       } catch (error) {
         console.error(`API端点 ${endpoint} 失败:`, error);
+        if (axios.isAxiosError(error)) {
+          console.error('错误详情:', error.response?.data);
+        }
         continue;
       }
     }
@@ -185,7 +200,11 @@ router.get('/api/health', (req, res) => {
     env: process.env.COZE_PROJECT_ENV,
     timestamp: new Date().toISOString(),
     apis: {
-      stock: STOCK_API_CONFIG.key ? 'configured' : 'not configured',
+      stock: {
+        appid: STOCK_API_CONFIG.appid ? `configured (${STOCK_API_CONFIG.appid.substring(0, 8)}...)` : 'not configured',
+        sign: STOCK_API_CONFIG.sign ? `configured (${STOCK_API_CONFIG.sign.substring(0, 8)}...)` : 'not configured',
+        endpoints: STOCK_API_CONFIG.endpoints.length,
+      },
     },
   });
 });
