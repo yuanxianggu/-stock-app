@@ -3,16 +3,15 @@ import axios from 'axios';
 
 const router = Router();
 
-// 股票API配置
+// 股票API配置（根据聚合数据文档）
 const STOCK_API_CONFIG = {
-  // 聚合数据需要两个参数：appid 和 sign
-  appid: process.env.STOCK_API_APPID || '8d33d60f6d3cecb50617aeca9f73f6c8',
-  sign: process.env.STOCK_API_SIGN || '8d33d60f6d3cecb50617aeca9f73f6c8',
-  endpoints: [
-    'https://route.showapi.com/131-63', // 股票行情
-    'https://route.showapi.com/131-60', // 实时行情
-    'https://route.showapi.com/131-62', // 历史行情
-  ],
+  apiKey: process.env.STOCK_API_KEY || '8d33d60f6d3cecb50617aeca9f73f6c8',
+  endpoints: {
+    sh: 'http://web.juhe.cn/finance/stock/shall',
+    sz: 'http://web.juhe.cn/finance/stock/szall',
+    us: 'http://web.juhe.cn/finance/stock/usaall',
+    hk: 'http://web.juhe.cn/finance/stock/hkall',
+  },
 };
 
 // 真实股票名称库
@@ -112,62 +111,99 @@ router.get('/api/stocks', async (req, res) => {
 
     console.log('股票API请求:', { market, page, pageSize });
 
-    // 尝试调用真实API
-    for (const endpoint of STOCK_API_CONFIG.endpoints) {
-      try {
-        console.log(`尝试API端点: ${endpoint}`);
-        console.log(`使用 appid: ${STOCK_API_CONFIG.appid.substring(0, 8)}...`);
-        console.log(`使用 sign: ${STOCK_API_CONFIG.sign.substring(0, 8)}...`);
+    // 调用聚合数据真实API
+    const apiUrl = STOCK_API_CONFIG.endpoints[market as keyof typeof STOCK_API_CONFIG.endpoints];
+    if (!apiUrl) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid market parameter',
+      });
+    }
 
-        const params = new URLSearchParams({
-          showapi_appid: STOCK_API_CONFIG.appid,
-          showapi_sign: STOCK_API_CONFIG.sign,
-          market: String(market),
-          page: String(page),
-          num: String(pageSize),
-        });
+    try {
+      console.log(`调用聚合数据API: ${apiUrl}`);
+      console.log(`使用 apiKey: ${STOCK_API_CONFIG.apiKey.substring(0, 8)}...`);
 
-        const url = `${endpoint}?${params.toString()}`;
-        console.log('请求URL:', url);
+      // 构建请求参数
+      const params = new URLSearchParams({
+        key: STOCK_API_CONFIG.apiKey,
+        page: String(page),
+      });
 
-        const response = await axios.get(url, { timeout: 5000 });
+      // 沪市和深市支持stock参数（a表示A股，b表示B股）
+      if (market === 'sh' || market === 'sz') {
+        params.append('stock', 'a'); // 默认查询A股
+      }
 
-        const data = response.data;
-        console.log('API响应状态:', data.showapi_res_code);
-        console.log('API响应错误:', data.showapi_res_error);
+      const url = `${apiUrl}?${params.toString()}`;
+      console.log('请求URL:', url);
 
-        if (data.showapi_res_code === 0 && data.showapi_res_body) {
-          const body = data.showapi_res_body;
-          const stockList = body.list || body.data || [];
+      const response = await axios.get(url, {
+        timeout: 10000,
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+      });
 
-          if (stockList.length > 0) {
-            const stocks = stockList.map((item: any) => ({
-              name: item.name || item.stockName || '未知',
-              code: item.code || item.stockCode || item.symbol || '',
-              price: String(item.current || item.price || item.now || '0.00'),
-              changePercent: String(item.changePercent || item.change || item.updown || '0.00'),
-            }));
+      const data = response.data;
+      console.log('API响应状态:', data.error_code);
+      console.log('API响应原因:', data.reason);
 
-            console.log('成功获取真实数据:', stocks.length);
+      if (data.error_code === 0 && data.result) {
+        const result = data.result;
+        const stockList = result.data || [];
 
-            return res.json({
-              success: true,
-              data: stocks,
-              total: body.total || stockList.length,
-              page: parseInt(String(page)),
-              pageSize: parseInt(String(pageSize)),
-              source: 'api',
-            });
-          } else {
-            console.log('API返回数据为空');
-          }
+        if (stockList.length > 0) {
+          // 根据不同市场的返回格式转换数据
+          const stocks = stockList.map((item: any) => {
+            // 沪市/深市格式
+            if (market === 'sh' || market === 'sz') {
+              return {
+                name: item.name,
+                code: item.code || item.symbol,
+                price: item.trade,
+                changePercent: item.changepercent,
+              };
+            }
+            // 美股格式
+            if (market === 'us') {
+              return {
+                name: item.cname,
+                code: item.symbol,
+                price: item.price,
+                changePercent: item.chg,
+              };
+            }
+            // 港股格式
+            if (market === 'hk') {
+              return {
+                name: item.name,
+                code: item.symbol,
+                price: item.lasttrade,
+                changePercent: item.changepercent,
+              };
+            }
+            return null;
+          }).filter(Boolean);
+
+          console.log('成功获取真实数据:', stocks.length);
+
+          return res.json({
+            success: true,
+            data: stocks,
+            total: parseInt(result.totalCount || '0'),
+            page: parseInt(result.page || String(page)),
+            pageSize: parseInt(result.num || String(pageSize)),
+            source: 'api',
+          });
         }
-      } catch (error) {
-        console.error(`API端点 ${endpoint} 失败:`, error);
-        if (axios.isAxiosError(error)) {
-          console.error('错误详情:', error.response?.data);
-        }
-        continue;
+      } else {
+        console.log('API返回错误或无数据:', data.reason);
+      }
+    } catch (error) {
+      console.error('聚合数据API请求失败:', error);
+      if (axios.isAxiosError(error)) {
+        console.error('错误详情:', error.response?.data);
       }
     }
 
@@ -201,9 +237,8 @@ router.get('/api/health', (req, res) => {
     timestamp: new Date().toISOString(),
     apis: {
       stock: {
-        appid: STOCK_API_CONFIG.appid ? `configured (${STOCK_API_CONFIG.appid.substring(0, 8)}...)` : 'not configured',
-        sign: STOCK_API_CONFIG.sign ? `configured (${STOCK_API_CONFIG.sign.substring(0, 8)}...)` : 'not configured',
-        endpoints: STOCK_API_CONFIG.endpoints.length,
+        apiKey: STOCK_API_CONFIG.apiKey ? `configured (${STOCK_API_CONFIG.apiKey.substring(0, 8)}...)` : 'not configured',
+        endpoints: Object.keys(STOCK_API_CONFIG.endpoints).length,
       },
     },
   });
