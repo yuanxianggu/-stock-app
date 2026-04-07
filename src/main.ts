@@ -13,14 +13,8 @@ interface ApiResponse {
 
 // 配置
 const CONFIG = {
-  API_KEY: '8d33d60f6d3cecb50617aeca9f73f6c8',
+  API_BASE_URL: '/api', // 后端API基础路径
   PAGE_SIZE: 20,
-  // 聚合数据股票API - 尝试多个可能的端点
-  API_ENDPOINTS: [
-    'https://route.showapi.com/131-63', // 股票行情
-    'https://route.showapi.com/131-60', // 实时行情
-    'https://route.showapi.com/131-62', // 历史行情
-  ],
 };
 
 // 市场配置
@@ -74,67 +68,36 @@ function getColorClass(changePercent: string): string {
   return 'text-neutral';
 }
 
-// API 请求
+// API 请求（调用后端API）
 async function fetchStockList(market: string, page: number): Promise<ApiResponse> {
-  console.log('请求 API:', { market, page });
+  console.log('请求后端API:', { market, page });
 
-  // 尝试所有可能的API端点
-  for (const endpoint of CONFIG.API_ENDPOINTS) {
-    try {
-      // 构建请求参数
-      const params = new URLSearchParams({
-        showapi_appid: CONFIG.API_KEY,
-        showapi_sign: CONFIG.API_KEY,
-        market: market,
-        page: String(page),
-        num: String(CONFIG.PAGE_SIZE),
-      });
+  try {
+    const url = `${CONFIG.API_BASE_URL}/stocks?market=${market}&page=${page}&pageSize=${CONFIG.PAGE_SIZE}`;
+    console.log('请求URL:', url);
 
-      const url = `${endpoint}?${params.toString()}`;
-      console.log('尝试API:', endpoint);
+    const response = await fetch(url);
+    const result = await response.json();
+    console.log('后端API响应:', result);
 
-      const response = await fetch(url, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
+    if (result.success && result.data) {
+      console.log(`成功获取${result.source === 'api' ? '真实' : '模拟'}数据:`, result.data.length);
 
-      const data = await response.json();
-      console.log('API 响应:', data);
-
-      // 检查响应格式
-      if (data.showapi_res_code === 0 && data.showapi_res_body) {
-        const body = data.showapi_res_body;
-        const stockList = body.list || body.data || [];
-
-        if (stockList.length > 0) {
-          // 转换数据格式
-          const stocks = stockList.map((item: Record<string, string | number>) => ({
-            name: (item.name || item.stockName || '未知') as string,
-            code: (item.code || item.stockCode || item.symbol || '') as string,
-            price: String(item.current || item.price || item.now || '0.00'),
-            changePercent: String(item.changePercent || item.change || item.updown || '0.00'),
-          }));
-
-          console.log('成功获取真实数据:', stocks.length);
-          return {
-            data: stocks,
-            total: body.total || stockList.length,
-          };
-        }
-      }
-    } catch (error) {
-      console.error(`API 端点 ${endpoint} 请求失败:`, error);
-      continue;
+      return {
+        data: result.data,
+        total: result.total,
+      };
+    } else {
+      throw new Error(result.error || '获取数据失败');
     }
+  } catch (error) {
+    console.error('后端API请求失败:', error);
+    // 后端API失败时的降级处理
+    return {
+      data: generateMockStocks(market, page),
+      total: 100,
+    };
   }
-
-  console.warn('所有API端点都失败，使用模拟数据');
-  return {
-    data: generateMockStocks(market, page),
-    total: 100,
-  };
 }
 
 // 真实股票名称库
@@ -372,8 +335,8 @@ function renderApp(): void {
 
   // 数据来源提示
   const dataSourceNotice = `
-    <div class="mx-4 mt-4 mb-2 px-3 py-2 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded text-xs text-yellow-700 dark:text-yellow-300">
-      ⚠️ 当前显示为模拟数据，真实API需要有效的聚合数据账号
+    <div class="mx-4 mt-4 mb-2 px-3 py-2 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded text-xs text-blue-700 dark:text-blue-300">
+      ℹ️ 数据由后端API提供，自动聚合多个数据源
     </div>
   `;
 

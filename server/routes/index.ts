@@ -1,6 +1,10 @@
 import { Router } from 'express';
+import stockRouter from './stocks';
 
 const router = Router();
+
+// 股票API路由
+router.use(stockRouter);
 
 // API 路由示例
 router.get('/api/hello', (req, res) => {
@@ -16,15 +20,6 @@ router.post('/api/data', (req, res) => {
     success: true,
     data: requestData,
     receivedAt: new Date().toISOString(),
-  });
-});
-
-// 健康检查接口
-router.get('/api/health', (req, res) => {
-  res.json({
-    status: 'ok',
-    env: process.env.COZE_PROJECT_ENV,
-    timestamp: new Date().toISOString(),
   });
 });
 
