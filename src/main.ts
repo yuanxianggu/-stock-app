@@ -125,16 +125,24 @@ const STOCK_NAMES: Record<string, string[]> = {
   ],
 };
 
+// 真实股票代码库（前缀）
+const STOCK_CODES: Record<string, { prefix: string, start: number }> = {
+  sh: { prefix: '600', start: 0 },
+  sz: { prefix: '000', start: 0 },
+  hk: { prefix: 'HK', start: 1 },
+  us: { prefix: '', start: 0 }, // 美股用字母代码
+};
+
+// 真实美股代码
+const US_STOCK_CODES = [
+  'AAPL', 'MSFT', 'GOOGL', 'AMZN', 'TSLA', 'META', 'NVDA', 'JPM',
+  'V', 'PG', 'JNJ', 'WMT', 'XOM', 'CVX', 'KO', 'PEP', 'COST',
+  'AVGO', 'CSCO', 'ADBE', 'CRM', 'NFLX', 'INTC', 'AMD', 'ORCL',
+];
+
 // 生成模拟数据（仅用于演示）
 function generateMockStocks(market: string, page: number): StockData[] {
   const stocks: StockData[] = [];
-  const marketPrefixes: Record<string, string> = {
-    sh: '600',
-    sz: '000',
-    hk: 'HK',
-    us: 'US',
-  };
-
   const names = STOCK_NAMES[market] || STOCK_NAMES.sh;
   const namesLength = names.length;
 
@@ -142,10 +150,49 @@ function generateMockStocks(market: string, page: number): StockData[] {
 
   for (let i = 0; i < CONFIG.PAGE_SIZE; i++) {
     const index = (page - 1) * CONFIG.PAGE_SIZE + i;
-    const prefix = marketPrefixes[market] || '';
-    const code = prefix + String(index + 1).padStart(6, '0');
-    const change = (Math.random() * 20 - 10).toFixed(2);
-    const price = (10 + Math.random() * 100).toFixed(2);
+    let code: string;
+
+    // 根据市场生成不同的股票代码
+    if (market === 'us') {
+      // 美股使用真实代码
+      const codeIndex = index % US_STOCK_CODES.length;
+      code = US_STOCK_CODES[codeIndex];
+    } else if (market === 'hk') {
+      // 港股：HK0001, HK0002...
+      const codeIndex = index + STOCK_CODES.hk.start;
+      code = `${STOCK_CODES.hk.prefix}${String(codeIndex).padStart(4, '0')}`;
+    } else {
+      // 沪市/深市：600000, 600001... 或 000001, 000002...
+      const codeIndex = index + STOCK_CODES[market].start;
+      code = `${STOCK_CODES[market].prefix}${String(codeIndex).padStart(6 - STOCK_CODES[market].prefix.length, '0')}`;
+    }
+
+    // 生成更合理的涨跌幅（大部分在 -5% 到 +5% 之间，少数极端情况）
+    const rand = Math.random();
+    let changePercent: number;
+    if (rand < 0.05) {
+      // 5%的概率涨跌幅超过5%
+      changePercent = (Math.random() > 0.5 ? 5.01 : -5.01) * (0.5 + Math.random() * 1.5);
+    } else if (rand < 0.2) {
+      // 15%的概率涨跌幅在3%-5%之间
+      changePercent = (Math.random() * 2 - 1) * (3 + Math.random() * 2);
+    } else {
+      // 80%的概率涨跌幅在-3%到+3%之间
+      changePercent = (Math.random() * 6 - 3);
+    }
+
+    // 根据市场调整价格范围
+    let price: number;
+    if (market === 'us') {
+      // 美股价格较高（100-300美元）
+      price = 100 + Math.random() * 200;
+    } else if (market === 'hk') {
+      // 港股价格中等（50-500港币）
+      price = 50 + Math.random() * 450;
+    } else {
+      // A股价格较低（5-100元）
+      price = 5 + Math.random() * 95;
+    }
 
     // 循环使用真实股票名称
     const nameIndex = index % namesLength;
@@ -154,8 +201,8 @@ function generateMockStocks(market: string, page: number): StockData[] {
     const stock: StockData = {
       name: stockName,
       code,
-      price,
-      changePercent: change,
+      price: price.toFixed(2),
+      changePercent: changePercent.toFixed(2),
     };
     stocks.push(stock);
   }
