@@ -259,9 +259,7 @@ curl "https://your-project.pages.dev/api/stocks?market=sh&page=1"
 
 配置 URL 重定向，主要是 SPA 路由回退到 index.html。
 
-### `wrangler.toml` 文件
-
-Wrangler CLI 配置文件，用于本地开发测试。
+**注意**：Cloudflare Pages 会自动处理 `functions/` 目录下的 Workers Functions，无需额外配置文件。
 
 ---
 

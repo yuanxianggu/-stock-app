@@ -68,7 +68,6 @@ wrangler pages dev dist --functions=functions --port 5000
 │   └── _redirects        # URL 重定向规则
 ├── index.html            # HTML 入口文件
 ├── vite.config.ts        # Vite 配置
-├── wrangler.toml         # Wrangler 配置（本地开发）
 ├── tailwind.config.js    # Tailwind CSS 配置
 └── tsconfig.json         # TypeScript 配置
 ```
