@@ -17,6 +17,7 @@
     "express": "^4.21.2"
   },
   "devDependencies": {
+    "@cloudflare/vite-plugin": "^0.1.21",
     "@types/express": "^5.0.0",
     "@types/node": "^22.10.5",
     "autoprefixer": "^10.4.20",
